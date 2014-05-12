@@ -243,7 +243,7 @@ struct transfer_table_entry transfer_table[] = {
 		cb_operator_end},
 	{MACHINE_OPERATOR, CHAR_DIGIT, MACHINE_DIGIT, "end operators, start digit",
 		cb_operator_end_digit_start},
-	{MACHINE_OPERATOR, CHAR_WORD, MACHINE_DIGIT, "end operators, start word",
+	{MACHINE_OPERATOR, CHAR_WORD, MACHINE_WORD, "end operators, start word",
 		cb_operator_end_word_start},
 };
 

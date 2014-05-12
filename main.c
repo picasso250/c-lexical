@@ -1,4 +1,3 @@
-// hello world
 /* main.c */
 /* this file is to lexic pass of c */
 
@@ -14,6 +13,10 @@
 #define MACHINE_COMMENT_MULTI_LINE 11
 #define MACHINE_COMMENT_SINGLE_LINE 12
 #define MACHINE_COMMENT_MULTI_LINE_END_READY 111
+#define MACHINE_UNKOWN 2 // leave it alone
+#define MACHINE_COMPILE_PROCESSOR 3
+#define MACHINE_INCLUDE 31
+#define MACHINE_DEFINE 32
 
 #define MACHINE_STATE_COUNT 14
 
@@ -21,7 +24,7 @@
 
 int read_file_name_from_arg(char * file_name)
 {
-	strcpy(file_name, "main.c");
+	strcpy(file_name, "test.c");
 	return 0;
 }
 
@@ -39,7 +42,7 @@ int state_stack_print()
 }
 int state_push(int machine_state)
 {
-	printf("pushing state %d\n", machine_state);
+	// printf("pushing state %d\n", machine_state);
 	int current = state_stack[stack_pointer-1];
 	if (stack_pointer > 0 && current == MACHINE_COMMENT_READY && (machine_state == MACHINE_COMMENT_MULTI_LINE|| machine_state == MACHINE_COMMENT_SINGLE_LINE))
 	{
@@ -49,13 +52,13 @@ int state_push(int machine_state)
 	{
 		state_stack[stack_pointer++] = machine_state;
 	}
-	state_stack_print();
+	// state_stack_print();
 	return stack_pointer;
 }
 int state_pop()
 {
-	printf("poping stack\n");
-	state_stack_print();
+	// printf("poping stack\n");
+	// state_stack_print();
 	int last = 0;
 	do {
 		last = state_stack[--stack_pointer];
@@ -68,14 +71,13 @@ int state_pop()
 			break;
 		}
 	} while (true);
-	state_stack_print();
+	// state_stack_print();
 	return last;
 }
 int state_get()
 {
 	return state_stack[stack_pointer-1];
 }
-
 
 int buffer_comment_index;
 char buffer_comment[65535];
@@ -93,6 +95,35 @@ int cb_comment_end(char c)
 {
 	printf("%s\n", buffer_comment);
 	return 0;
+}
+char buffer_processor_name_index;
+char buffer_processor_name[99];
+int cb_compile_processor_name(char c)
+{
+	buffer_processor_name[buffer_processor_name_index++] = c;
+}
+int cb_compile_processor_name_start(char c)
+{
+	buffer_processor_name_index = 0;
+}
+int cb_compile_processor_name_end(char c)
+{
+	printf("#%s\n", buffer_processor_name);
+	if (strcmp("include", buffer_processor_name) == 0)
+	{
+		printf("we include a file\n");
+		state_push(MACHINE_INCLUDE);
+	}
+	else if (strcmp("define", buffer_processor_name) == 0)
+	{
+		printf("we define a macro\n");
+		state_push(MACHINE_DEFINE);
+	}
+	else
+	{
+		printf("we do not understand '#%s'\n", buffer_processor_name);
+		return -1;
+	}
 }
 
 struct transfer_table_entry
@@ -116,6 +147,12 @@ struct transfer_table_entry transfer_table[] = {
 		NULL},
 	{MACHINE_INIT, '\r', MACHINE_INIT, "carrier char",
 		NULL},
+	{MACHINE_INIT, '#', MACHINE_COMPILE_PROCESSOR, "compile processor start",
+		cb_compile_processor_name_start},
+	{MACHINE_COMPILE_PROCESSOR, ' ', MACHINE_UNKOWN, "compile processor start",
+		cb_compile_processor_name_end},
+	{MACHINE_COMPILE_PROCESSOR, CHAR_ANY, MACHINE_COMPILE_PROCESSOR, "read processor name",
+		cb_compile_processor_name},
 	{MACHINE_COMMENT_READY, '*', MACHINE_COMMENT_MULTI_LINE, "start multi line comment", 
 		cb_comment_init},
 	{MACHINE_COMMENT_READY, '/', MACHINE_COMMENT_SINGLE_LINE, "start single line comment", 
@@ -197,6 +234,7 @@ int state_machine_eat_char(char c)
 			printf("char '%c'\n", c);
 		}
 	}
+	else if (next_state == MACHINE_UNKOWN);
 	else
 	{
 		state_push(last_state);
@@ -205,6 +243,7 @@ int state_machine_eat_char(char c)
 	printf("we go to state %d\n", machine_state);
 	return 0;
 }
+
 int main(int argc, char const *argv[])
 {
 	char file_name[255];

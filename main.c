@@ -1,3 +1,4 @@
+/* main.c */
 /* this file is to lexic pass of c */
 
 #include <stdio.h>
@@ -12,7 +13,7 @@
 #define MACHINE_COMMENT_SINGLE_LINE 12
 #define MACHINE_COMMENT_MULTI_LINE_END_READY 12
 
-#define MACHINE_STATE_COUNT 8
+#define MACHINE_STATE_COUNT 10
 
 #define CHAR_ANY -1
 
@@ -40,49 +41,38 @@ int cb_comment_multi_line_end(char c)
 	return 0;
 }
 
-/*
- 3 cols
- first col: current machine state
- second col: char
- third col: state tranfer to
- order of entries is important
- */
-int transfer_table[][3] = {
-	{MACHINE_INIT, '/', MACHINE_COMMENT_READY},
-	{MACHINE_COMMENT_READY, '*', MACHINE_COMMENT_MULTI_LINE},
-	{MACHINE_COMMENT_READY, '/', MACHINE_COMMENT_SINGLE_LINE},
-	{MACHINE_COMMENT_READY, CHAR_ANY, MACHINE_ERROR},
-	{MACHINE_COMMENT_MULTI_LINE, '*', MACHINE_COMMENT_MULTI_LINE_END_READY},
-	{MACHINE_COMMENT_MULTI_LINE, CHAR_ANY, MACHINE_COMMENT_MULTI_LINE},
-	{MACHINE_COMMENT_MULTI_LINE_END_READY, CHAR_ANY, MACHINE_COMMENT_MULTI_LINE_END_READY},
-	{MACHINE_COMMENT_MULTI_LINE_END_READY, '/', MACHINE_LAST_STATE},
-	{MACHINE_COMMENT_SINGLE_LINE, '\n', MACHINE_LAST_STATE},
-	{MACHINE_COMMENT_SINGLE_LINE, CHAR_ANY, MACHINE_COMMENT_SINGLE_LINE},
+struct transfer_table_entry
+{
+	int state_current; // current machine state
+	int char_current;
+	int state_next; // state tranfer to
+	char description[255];
+	int (*callback)(char); // pointer of function who takes a char and returns an int
 };
 
-// array of pointers of function which take a char and returns an int
-int (*callback_map[])(char) = {
-	NULL,
-	cb_comment_init,
-	NULL,
-	NULL,
-	NULL,
-	cb_comment_multi_line,
-	NULL,
-	cb_comment_multi_line_end,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
+struct transfer_table_entry transfer_table[] = {
+	{MACHINE_INIT, '/', MACHINE_COMMENT_READY, "ready to comment", 
+		NULL},
+	{MACHINE_COMMENT_READY, '*', MACHINE_COMMENT_MULTI_LINE, "start multi line comment", 
+		cb_comment_init},
+	{MACHINE_COMMENT_READY, '/', MACHINE_COMMENT_SINGLE_LINE, "start single line comment", 
+		NULL},
+	{MACHINE_COMMENT_READY, CHAR_ANY, MACHINE_ERROR, "/ followed by neither of '*' or '/'", 
+		NULL},
+	{MACHINE_COMMENT_MULTI_LINE, '*', MACHINE_COMMENT_MULTI_LINE_END_READY, "read to end multi line comment", 
+		NULL},
+	{MACHINE_COMMENT_MULTI_LINE, CHAR_ANY, MACHINE_COMMENT_MULTI_LINE, "in multi line comment", 
+		cb_comment_multi_line},
+	{MACHINE_COMMENT_MULTI_LINE_END_READY, '/', MACHINE_LAST_STATE, "yes, we end multi line comment", 
+		cb_comment_multi_line_end},
+	{MACHINE_COMMENT_MULTI_LINE_END_READY, CHAR_ANY, MACHINE_COMMENT_MULTI_LINE_END_READY, "no, we do not end multi line comment", 
+		NULL},
+	{MACHINE_COMMENT_SINGLE_LINE, '\n', MACHINE_LAST_STATE, "end of line, end of single line comment", 
+		NULL},
+	{MACHINE_COMMENT_SINGLE_LINE, CHAR_ANY, MACHINE_COMMENT_SINGLE_LINE, "in one line comment", 
+		NULL},
 };
 
-char transfer_table_description[][255] = {
-	"ready to comment",
-	"start multi line comment",
-	""
-};
 int machine_state;
 int machine_last_state;
 int line_num;
@@ -91,8 +81,8 @@ int find_transfer_entry(int machine_state, int c)
 	int i;
 	for (i = 0; i < MACHINE_STATE_COUNT; ++i)
 	{
-		int state = transfer_table[i][0];
-		int ch = transfer_table[i][1];
+		int state = transfer_table[i].state_current;
+		int ch = transfer_table[i].char_current;
 		if (state == machine_state && (c == ch || ch == CHAR_ANY))
 		{
 			return i;
@@ -106,17 +96,16 @@ int state_machine_eat_char(char c)
 	{
 		line_num++;
 	}
-	printf("machine_state %d\n", machine_state);
-	printf("we read char of %c\n", c);
+	printf("=====================\nmachine_state %d, we read char '%c'\n", machine_state, c);
 	int i = find_transfer_entry(machine_state, c);
 	if (i == -1) // can not find
 	{
 		printf("no state %d and char %c in transfer_table\n", machine_state, c);
 		return -1;
 	}
-	printf("STATE TRANSFER %d: %s\n", i, transfer_table_description[i]);
+	printf("STATE TRANSFER %d: %s\n", i, transfer_table[i].description);
 	// call back
-	int (*func_cb)(char) = callback_map[i];
+	int (*func_cb)(char) = transfer_table[i].callback;
 	if (func_cb != NULL)
 	{
 		printf("callback %d\n", i);
@@ -126,7 +115,7 @@ int state_machine_eat_char(char c)
 		}
 	}
 	machine_last_state = machine_state;
-	int next_state = transfer_table[i][2]; // next state
+	int next_state = transfer_table[i].state_next; // next state
 	if (next_state == MACHINE_LAST_STATE)
 	{
 		machine_state = machine_last_state;

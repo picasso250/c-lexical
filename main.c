@@ -22,11 +22,30 @@ int read_file_name_from_arg(char * file_name)
 	return 0;
 }
 
+int buffer_comment_index;
+char buffer_comment[65535];
+int cb_comment_init(char c)
+{
+	buffer_comment_index = 0;
+	return 0;
+}
+int cb_comment_multi_line(char c)
+{
+	buffer_comment[buffer_comment_index++] = c;
+	return 0;
+}
+int cb_comment_multi_line_end(char c)
+{
+	printf("%s\n", buffer_comment);
+	return 0;
+}
+
 /*
  3 cols
  first col: current machine state
- second col: char, -1 indicate any char
+ second col: char
  third col: state tranfer to
+ order of entries is important
  */
 int transfer_table[][3] = {
 	{MACHINE_INIT, '/', MACHINE_COMMENT_READY},
@@ -34,27 +53,35 @@ int transfer_table[][3] = {
 	{MACHINE_COMMENT_READY, '/', MACHINE_COMMENT_SINGLE_LINE},
 	{MACHINE_COMMENT_READY, CHAR_ANY, MACHINE_ERROR},
 	{MACHINE_COMMENT_MULTI_LINE, '*', MACHINE_COMMENT_MULTI_LINE_END_READY},
+	{MACHINE_COMMENT_MULTI_LINE, CHAR_ANY, MACHINE_COMMENT_MULTI_LINE},
 	{MACHINE_COMMENT_MULTI_LINE_END_READY, CHAR_ANY, MACHINE_COMMENT_MULTI_LINE_END_READY},
 	{MACHINE_COMMENT_MULTI_LINE_END_READY, '/', MACHINE_LAST_STATE},
 	{MACHINE_COMMENT_SINGLE_LINE, '\n', MACHINE_LAST_STATE},
+	{MACHINE_COMMENT_SINGLE_LINE, CHAR_ANY, MACHINE_COMMENT_SINGLE_LINE},
 };
 
 // array of pointers of function which take a char and returns an int
 int (*callback_map[])(char) = {
 	NULL,
+	cb_comment_init,
+	NULL,
+	NULL,
+	NULL,
+	cb_comment_multi_line,
+	NULL,
+	cb_comment_multi_line_end,
 	NULL,
 	NULL,
 	NULL,
 	NULL,
 	NULL,
 	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
+};
+
+char transfer_table_description[][255] = {
+	"ready to comment",
+	"start multi line comment",
+	""
 };
 int machine_state;
 int machine_last_state;
@@ -80,18 +107,45 @@ int state_machine_eat_char(char c)
 		line_num++;
 	}
 	printf("machine_state %d\n", machine_state);
-	// printf("we read char of %c\n", c);
+	printf("we read char of %c\n", c);
 	int i = find_transfer_entry(machine_state, c);
 	if (i == -1) // can not find
 	{
-		printf("no state %d in transfer_table\n", machine_state);
+		printf("no state %d and char %c in transfer_table\n", machine_state, c);
 		return -1;
 	}
+	printf("STATE TRANSFER %d: %s\n", i, transfer_table_description[i]);
 	// call back
 	int (*func_cb)(char) = callback_map[i];
 	if (func_cb != NULL)
 	{
-		return func_cb(c);
+		printf("callback %d\n", i);
+		if (-1 == func_cb(c))
+		{
+			return -1;
+		}
+	}
+	machine_last_state = machine_state;
+	int next_state = transfer_table[i][2]; // next state
+	if (next_state == MACHINE_LAST_STATE)
+	{
+		machine_state = machine_last_state;
+	}
+	else if (next_state == MACHINE_ERROR)
+	{
+		printf("error, it is not allowed that satte %d followed by ", machine_state);
+		if (c == CHAR_ANY)
+		{
+			printf("any char\n");
+		}
+		else
+		{
+			printf("char '%c'\n", c);
+		}
+	}
+	else
+	{
+		machine_state = next_state;
 	}
 	return 0;
 }

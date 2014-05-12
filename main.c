@@ -7,6 +7,27 @@
 #include <stdbool.h>
 #include <ctype.h>
 
+#define KEYWORD_COUNT 32
+char keywords[][20] = {"auto", "break", "case", "char", "const", "continue", "default", "do", "double", "else", "enum", "extern", "float", "for", "goto", "if", "int", "long", "register", "return", "short", "signed", "sizeof", "static", "struct", "switch", "typedef", "union", "unsigned", "void", "volatile", "while"};
+char operators[][3] = {"#", "<", ">", ";", ",", ".", "->", "+", "-", "*", "/", "%", "++", "--", "<", ">", "=", "+=", "-=", "*=", "/=", "%=", "<<=", ">>=", "&=", "^=", "|=", "==", "<=", ">=", "!=", "&&", "||", "!", "|", "&", "^", "~", "<<", ">>", "+=", "*=", "?", ":", "(", ")", "[", "]", "{", "}"};
+bool is_in_map(char * str, char **map)
+{
+	for (int i = 0; i < count; ++i)
+	{
+		if (strcmp(str, map[i]) == 0)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+int read_file_name_from_arg(char * file_name)
+{
+	strcpy(file_name, "test.c");
+	return 0;
+}
+
 #define MACHINE_INIT 0
 #define MACHINE_ERROR -1
 #define MACHINE_LAST_STATE -2
@@ -22,14 +43,43 @@
 
 #define MACHINE_STATE_COUNT 14
 
-#define CHAR_SPACE -1
-#define CHAR_ANY -2
+#define CHAR_ANY -1
+#define CHAR_SPACE -2
+#define CHAR_ALPHA_UNDERSCORE -3
+#define CHAR_ALPHA_NUM_DOT -4
+#define CHAR_DIGIT -5
+#define CHAR_WORD -6
+#define CHAR_OPERATOR -7
 
-int read_file_name_from_arg(char * file_name)
+int isany(int c)
 {
-	strcpy(file_name, "test.c");
-	return 0;
+	return true;
 }
+int isalpha_(int c)
+{
+	return c == '_' || isalpha(c);
+}
+int isalphanumdot(int c)
+{
+	return c == '.' || isalphanum(c);
+}
+int isword(int c)
+{
+	return c == '_' || isalphanum(c);
+}
+
+int (*)(int) [] = {
+	NULL, // 0
+	isany,
+	isspace,
+	isalpha_,
+	isalphanumdot,
+	isdigit,
+	isword,
+	ispunct,
+};
+
+
 
 int machine_state;
 int line_num;
@@ -48,7 +98,7 @@ int state_stack_print()
 }
 int state_push(int machine_state)
 {
-	// printf("pushing state %d\n", machine_state);
+	printf("pushing state %d\n", machine_state);
 	int current = state_stack[stack_pointer-1];
 	if (stack_pointer > 0 && current == MACHINE_COMMENT_READY && (machine_state == MACHINE_COMMENT_MULTI_LINE|| machine_state == MACHINE_COMMENT_SINGLE_LINE))
 	{
@@ -58,13 +108,13 @@ int state_push(int machine_state)
 	{
 		state_stack[stack_pointer++] = machine_state;
 	}
-	// state_stack_print();
+	state_stack_print();
 	return stack_pointer;
 }
 int state_pop()
 {
-	// printf("poping stack\n");
-	// state_stack_print();
+	printf("poping stack\n");
+	state_stack_print();
 	int last = 0;
 	do {
 		last = state_stack[--stack_pointer];
@@ -77,7 +127,7 @@ int state_pop()
 			break;
 		}
 	} while (true);
-	// state_stack_print();
+	state_stack_print();
 	return last;
 }
 int state_get()
@@ -155,7 +205,7 @@ struct transfer_table_entry
 {
 	int state_current; // current machine state
 	int char_current;
-	int state_next; // state tranfer to
+	int state_next; // state tranfer to // todo we do not need that
 	// bool is_preserve; // do we preserve last state
 	char description[255];
 	int (*callback)(char); // pointer of function who takes a char and returns an int
@@ -164,44 +214,75 @@ struct transfer_table_entry
 struct transfer_table_entry transfer_table[] = {
 	{MACHINE_INIT, CHAR_SPACE, MACHINE_INIT, "space char",
 		NULL},
-	{MACHINE_INIT, '#', MACHINE_COMPILE_PROCESSOR, "compile processor start",
+	{MACHINE_INIT, CHAR_ALPHA_UNDERSCORE, MACHINE_WORD, "[a-z_], start word",
 		cb_compile_processor_name_start},
-	{MACHINE_COMPILE_PROCESSOR, ' ', MACHINE_UNKOWN, "compile processor start",
-		cb_compile_processor_name_end},
-	{MACHINE_COMPILE_PROCESSOR, CHAR_ANY, MACHINE_COMPILE_PROCESSOR, "read processor name",
-		cb_compile_processor_name},
-	{MACHINE_INCLUDE, CHAR_SPACE, MACHINE_INCLUDE, "include something",
-		NULL},
-	{MACHINE_INCLUDE, '<', MACHINE_INCLUDE_NAME, "include <name> start",
-		cb_include_name_start},
-	{MACHINE_INCLUDE_NAME, '>', MACHINE_LAST_STATE, "include <name> end",
-		cb_include_name_end},
-	{MACHINE_INCLUDE, '"', MACHINE_INCLUDE_NAME, "include <name> start",
-		cb_include_name_start},
-	{MACHINE_INCLUDE_NAME, '"', MACHINE_LAST_STATE, "include <name> end",
-		cb_include_name_end},
-	{MACHINE_INCLUDE_NAME, CHAR_ANY, MACHINE_INCLUDE_NAME, "include <name> constructing",
-		cb_include_name},
-	{MACHINE_INIT, '/', MACHINE_COMMENT_READY, "ready to comment",
-		NULL},
-	{MACHINE_COMMENT_READY, '*', MACHINE_COMMENT_MULTI_LINE, "start multi line comment", 
-		cb_comment_init},
-	{MACHINE_COMMENT_READY, '/', MACHINE_COMMENT_SINGLE_LINE, "start single line comment", 
-		NULL},
-	{MACHINE_COMMENT_READY, CHAR_ANY, MACHINE_ERROR, "'/' followed by neither of '*' or '/'", 
-		NULL},
-	{MACHINE_COMMENT_MULTI_LINE, '*', MACHINE_COMMENT_MULTI_LINE_END_READY, "ready to end multi line comment", 
-		NULL},
-	{MACHINE_COMMENT_MULTI_LINE, CHAR_ANY, MACHINE_COMMENT_MULTI_LINE, "in multi line comment", 
-		cb_comment},
-	{MACHINE_COMMENT_MULTI_LINE_END_READY, '/', MACHINE_LAST_STATE, "yes, we end multi line comment", 
-		cb_comment_end},
-	{MACHINE_COMMENT_MULTI_LINE_END_READY, CHAR_ANY, MACHINE_COMMENT_MULTI_LINE_END_READY, "no, we do not end multi line comment", 
-		NULL},
-	{MACHINE_COMMENT_SINGLE_LINE, '\n', MACHINE_LAST_STATE, "end of line, end of single line comment", 
-		cb_comment_end},
-	{MACHINE_COMMENT_SINGLE_LINE, CHAR_ANY, MACHINE_COMMENT_SINGLE_LINE, "in one line comment", 
-		cb_comment},
+	{MACHINE_INIT, CHAR_DIGIT, MACHINE_DIGIT, "'0-9', start digit",
+		cb_compile_processor_name_start},
+	{MACHINE_INIT, '"', MACHINE_STRING, "start string",
+		cb_compile_processor_name_start},
+    {MACHINE_INIT, '/', MACHINE_COMMENT_READY, "ready to comment",
+            NULL},
+    {MACHINE_COMMENT_READY, '*', MACHINE_COMMENT_MULTI_LINE, "start multi line comment",
+            cb_comment_init},
+    {MACHINE_COMMENT_READY, '/', MACHINE_COMMENT_SINGLE_LINE, "start single line comment",
+            NULL},
+    {MACHINE_COMMENT_READY, CHAR_ANY, MACHINE_ERROR, "'/' followed by neither of '*' or '/'",
+            NULL},
+    {MACHINE_COMMENT_MULTI_LINE, '*', MACHINE_COMMENT_MULTI_LINE_END_READY, "ready to end multi line comment",
+            NULL},
+    {MACHINE_COMMENT_MULTI_LINE, CHAR_ANY, MACHINE_COMMENT_MULTI_LINE, "in multi line comment",
+            cb_comment},
+    {MACHINE_COMMENT_MULTI_LINE_END_READY, '/', MACHINE_LAST_STATE, "yes, we end multi line comment",
+            cb_comment_end},
+    {MACHINE_COMMENT_MULTI_LINE_END_READY, CHAR_ANY, MACHINE_COMMENT_MULTI_LINE_END_READY, "no, we do not end multi line comment",
+            NULL},
+    {MACHINE_COMMENT_SINGLE_LINE, '\n', MACHINE_LAST_STATE, "end of line, end of single line comment",
+            cb_comment_end},
+    {MACHINE_COMMENT_SINGLE_LINE, CHAR_ANY, MACHINE_COMMENT_SINGLE_LINE, "in one line comment",
+            cb_comment},
+
+	{MACHINE_STRING, '\\', MACHINE_STRING_BACKSLASH, "start back slash",
+		cb_compile_processor_name_start},
+	{MACHINE_INIT, CHAR_OPERATOR, MACHINE_OPERATOR, "start operators",
+		cb_compile_processor_name_start},
+	{MACHINE_STRING, '"', MACHINE_INIT, "end string",
+		cb_compile_processor_name_start},
+	{MACHINE_STRING_BACKSLASH, '\\', MACHINE_STRING, "end back slash",
+		cb_compile_processor_name_start},
+
+	{MACHINE_WORD, CHAR_WORD, MACHINE_WORD, "\\w in word",
+		cb_compile_processor_name_start},
+	{MACHINE_WORD, CHAR_SPACE, MACHINE_COMPILE_PROCESSOR, "end word",
+		cb_compile_processor_name_start},
+	{MACHINE_WORD, CHAR_OPERATOR, MACHINE_COMPILE_PROCESSOR, "end word, start operators",
+		cb_compile_processor_name_start},
+
+	{MACHINE_DIGIT, CHAR_ALPHA_NUM_DOT, MACHINE_DIGIT, "in word",
+		cb_compile_processor_name_start},
+	{MACHINE_DIGIT, CHAR_SPACE, MACHINE_INIT, "end digit",
+		cb_compile_processor_name_start},
+	{MACHINE_DIGIT, CHAR_OPERATOR, MACHINE_INIT, "end digit, start operators",
+		cb_compile_processor_name_start},
+
+	{MACHINE_OPERATOR, CHAR_OPERATOR, MACHINE_OPERATOR, "in operators",
+		cb_compile_processor_name_start},
+	{MACHINE_OPERATOR, CHAR_SPACE, MACHINE_DIGIT, "end operators",
+		cb_compile_processor_name_start},
+	{MACHINE_OPERATOR, CHAR_DIGIT, MACHINE_DIGIT, "end operators, start digit",
+		cb_compile_processor_name_start},
+	{MACHINE_OPERATOR, CHAR_WORD, MACHINE_DIGIT, "end operators, start word",
+		cb_compile_processor_name_start},
+};
+
+#define TOKEN_TYPE_WORD 2
+#define TOKEN_TYPE_STRING 3
+#define TOKEN_TYPE_COMMENT 4
+#define TOKEN_TYPE_OPERATOR 5
+
+struct token
+{
+	int type;
+	char content[];
 };
 
 int find_transfer_entry(int machine_state, int c)
@@ -248,6 +329,7 @@ int state_machine_eat_char(char c)
 	int next_state = transfer_table[i].state_next; // next state
 	if (next_state == MACHINE_LAST_STATE)
 	{
+		printf("goto last state\n");
 		state_pop();
 		machine_state = state_get();
 	}

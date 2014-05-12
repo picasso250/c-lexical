@@ -17,6 +17,7 @@
 #define MACHINE_UNKOWN 2 // leave it alone
 #define MACHINE_COMPILE_PROCESSOR 3
 #define MACHINE_INCLUDE 31
+#define MACHINE_INCLUDE_NAME 311
 #define MACHINE_DEFINE 32
 
 #define MACHINE_STATE_COUNT 14
@@ -29,6 +30,9 @@ int read_file_name_from_arg(char * file_name)
 	strcpy(file_name, "test.c");
 	return 0;
 }
+
+int machine_state;
+int line_num;
 
 int stack_pointer = 0;
 int state_stack[1000];
@@ -95,6 +99,7 @@ int cb_comment(char c)
 }
 int cb_comment_end(char c)
 {
+	buffer_comment[buffer_comment_index++] = '\0';
 	printf("%s\n", buffer_comment);
 	return 0;
 }
@@ -110,22 +115,40 @@ int cb_compile_processor_name_start(char c)
 }
 int cb_compile_processor_name_end(char c)
 {
+	buffer_processor_name[buffer_processor_name_index++] = '\0';
 	printf("#%s\n", buffer_processor_name);
 	if (strcmp("include", buffer_processor_name) == 0)
 	{
 		printf("we include a file\n");
 		state_push(MACHINE_INCLUDE);
+		machine_state = MACHINE_INCLUDE;
 	}
 	else if (strcmp("define", buffer_processor_name) == 0)
 	{
 		printf("we define a macro\n");
 		state_push(MACHINE_DEFINE);
+		machine_state = MACHINE_DEFINE;
 	}
 	else
 	{
 		printf("we do not understand '#%s'\n", buffer_processor_name);
 		return -1;
 	}
+}
+int word_index;
+char word[255];
+int cb_include_name(char c)
+{
+	word[word_index++] = c;
+}
+int cb_include_name_start(char c)
+{
+	word_index = 0;
+}
+int cb_include_name_end(char c)
+{
+	word[word_index] = '\0';
+	printf("#include '%s'\n", word);
 }
 
 struct transfer_table_entry
@@ -139,8 +162,6 @@ struct transfer_table_entry
 };
 
 struct transfer_table_entry transfer_table[] = {
-	{MACHINE_INIT, '/', MACHINE_COMMENT_READY, "ready to comment",
-		NULL},
 	{MACHINE_INIT, CHAR_SPACE, MACHINE_INIT, "space char",
 		NULL},
 	{MACHINE_INIT, '#', MACHINE_COMPILE_PROCESSOR, "compile processor start",
@@ -152,10 +173,16 @@ struct transfer_table_entry transfer_table[] = {
 	{MACHINE_INCLUDE, CHAR_SPACE, MACHINE_INCLUDE, "include something",
 		NULL},
 	{MACHINE_INCLUDE, '<', MACHINE_INCLUDE_NAME, "include <name> start",
-		NULL},
+		cb_include_name_start},
 	{MACHINE_INCLUDE_NAME, '>', MACHINE_LAST_STATE, "include <name> end",
-		NULL},
+		cb_include_name_end},
+	{MACHINE_INCLUDE, '"', MACHINE_INCLUDE_NAME, "include <name> start",
+		cb_include_name_start},
+	{MACHINE_INCLUDE_NAME, '"', MACHINE_LAST_STATE, "include <name> end",
+		cb_include_name_end},
 	{MACHINE_INCLUDE_NAME, CHAR_ANY, MACHINE_INCLUDE_NAME, "include <name> constructing",
+		cb_include_name},
+	{MACHINE_INIT, '/', MACHINE_COMMENT_READY, "ready to comment",
 		NULL},
 	{MACHINE_COMMENT_READY, '*', MACHINE_COMMENT_MULTI_LINE, "start multi line comment", 
 		cb_comment_init},
@@ -177,9 +204,6 @@ struct transfer_table_entry transfer_table[] = {
 		cb_comment},
 };
 
-int machine_state;
-int machine_last_state;
-int line_num;
 int find_transfer_entry(int machine_state, int c)
 {
 	int i;
@@ -202,6 +226,7 @@ int state_machine_eat_char(char c)
 		line_num++;
 	}
 	printf("=====================\nmachine_state %d, we read char '%c'\n", machine_state, c);
+	state_stack_print();
 	int i = find_transfer_entry(machine_state, c);
 	if (i == -1) // can not find
 	{
@@ -259,7 +284,6 @@ int main(int argc, char const *argv[])
 	}
 	char c;
 	machine_state = MACHINE_INIT;
-	machine_last_state = MACHINE_INIT;
 	line_num = 1;
 	while ((c = getc(f)) != EOF)
 	{

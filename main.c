@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
+#include <stdbool.h>
 
 #define MACHINE_INIT 0
 #define MACHINE_ERROR -1
@@ -21,6 +22,40 @@
 int read_file_name_from_arg(char * file_name)
 {
 	strcpy(file_name, "main.c");
+	return 0;
+}
+
+int stack_pointer = 0;
+int state_stack[1000];
+int push_state(int machine_state)
+{
+	printf("we will push state %d\n", machine_state);
+	if (machine_state != state_stack[stack_pointer-1])
+	{
+		state_stack[stack_pointer++] = machine_state;
+	}
+	return stack_pointer;
+}
+int pop_last_state()
+{
+	printf("stack \n");
+	for (int i = 0; i <= stack_pointer; ++i)
+	{
+		printf("%d,", state_stack[i]);
+	}
+	printf("\n");
+	int last;
+	do {
+		last = state_stack[--stack_pointer];
+		if (last == MACHINE_COMMENT_READY)
+		{
+			continue;
+		}
+		else
+		{
+			return last;
+		}
+	} while (true);
 	return 0;
 }
 
@@ -47,6 +82,7 @@ struct transfer_table_entry
 	int state_current; // current machine state
 	int char_current;
 	int state_next; // state tranfer to
+	// bool is_preserve; // do we preserve last state
 	char description[255];
 	int (*callback)(char); // pointer of function who takes a char and returns an int
 };
@@ -124,15 +160,15 @@ int state_machine_eat_char(char c)
 			return -1;
 		}
 	}
-	machine_last_state = machine_state;
+	push_state(machine_state);
 	int next_state = transfer_table[i].state_next; // next state
 	if (next_state == MACHINE_LAST_STATE)
 	{
-		machine_state = machine_last_state;
+		machine_state = pop_last_state();
 	}
 	else if (next_state == MACHINE_ERROR)
 	{
-		printf("error, it is not allowed that satte %d followed by ", machine_state);
+		printf("error, it is not allowed that state %d followed by ", machine_state);
 		if (c == CHAR_ANY)
 		{
 			printf("any char\n");

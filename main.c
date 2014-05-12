@@ -46,14 +46,14 @@ inline int isalpha_(int c)
 }
 inline int isalphanumdot(int c)
 {
-	return c == '.' || isalphanum(c);
+	return c == '.' || isalnum(c);
 }
 inline int isword(int c)
 {
-	return c == '_' || isalphanum(c);
+	return c == '_' || isalnum(c);
 }
 
-int (* char_type_map)(int) [] = {
+int (* char_type_map[])(int) = {
 	NULL, // 0
 	isany,
 	isspace,
@@ -118,70 +118,74 @@ int state_get()
 	return state_stack[stack_pointer-1];
 }
 
-int buffer_comment_index;
-char buffer_comment[65535];
+int buffer_index;
+char buffer[65535];
+inline int buffer_init()
+{
+	buffer_index = 0;
+	return 0;
+}
+inline int buffer_append(char c)
+{
+	buffer[buffer_index++] = c;
+	return 0;
+}
+inline char * buffer_end()
+{
+	buffer[buffer_index++] = '\0';
+	return buffer;
+}
+
 int cb_comment_init(char c)
 {
-	buffer_comment_index = 0;
+	buffer_init();
 	return 0;
 }
 int cb_comment(char c)
 {
-	buffer_comment[buffer_comment_index++] = c;
+	buffer_append(c);
 	return 0;
 }
 int cb_comment_end(char c)
 {
-	buffer_comment[buffer_comment_index++] = '\0';
-	printf("%s\n", buffer_comment);
+	printf("comment: %s\n", buffer_end());
 	return 0;
 }
-char buffer_processor_name_index;
-char buffer_processor_name[99];
-int cb_compile_processor_name(char c)
+int cb_word(char c)
 {
-	buffer_processor_name[buffer_processor_name_index++] = c;
+	buffer_append(c);
 }
-int cb_compile_processor_name_start(char c)
+int cb_word_start(char c)
 {
-	buffer_processor_name_index = 0;
+	buffer_init();
 }
-int cb_compile_processor_name_end(char c)
+int cb_word_end(char c)
 {
-	buffer_processor_name[buffer_processor_name_index++] = '\0';
-	printf("#%s\n", buffer_processor_name);
-	if (strcmp("include", buffer_processor_name) == 0)
-	{
-		printf("we include a file\n");
-		state_push(MACHINE_INCLUDE);
-		machine_state = MACHINE_INCLUDE;
-	}
-	else if (strcmp("define", buffer_processor_name) == 0)
-	{
-		printf("we define a macro\n");
-		state_push(MACHINE_DEFINE);
-		machine_state = MACHINE_DEFINE;
-	}
-	else
-	{
-		printf("we do not understand '#%s'\n", buffer_processor_name);
-		return -1;
-	}
+	printf("word '%s'\n", buffer_end());
 }
-int word_index;
-char word[255];
-int cb_include_name(char c)
+int cb_operator(char c)
 {
-	word[word_index++] = c;
+	buffer_append(c);
 }
-int cb_include_name_start(char c)
+int cb_operator_start(char c)
 {
-	word_index = 0;
+	buffer_init();
 }
-int cb_include_name_end(char c)
+int cb_operator_end(char c)
 {
-	word[word_index] = '\0';
-	printf("#include '%s'\n", word);
+	printf("operator '%s'\n", buffer_end());
+}
+int cb_digit(char c)
+{
+	buffer_append(c);
+}
+int cb_digit_start(char c)
+{
+	buffer_init();
+}
+int cb_digit_end(char c)
+{
+	printf("digit '%s'\n", buffer_end());
 }
 
 struct transfer_table_entry

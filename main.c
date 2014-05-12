@@ -207,6 +207,25 @@ int cb_word_end_operator_start(char c)
 	cb_operator_start(c);
 	return 0;
 }
+int cb_digit_end_operator_start(char c)
+{
+	cb_digit_end(c);
+	cb_operator_start(c);
+	return 0;
+}
+int cb_operator_end_digit_start(char c)
+{
+	cb_operator_end(c);
+	cb_digit_start(c);
+	return 0;
+}
+int cb_operator_end_word_start(char c)
+{
+	cb_operator_end(c);
+	cb_word_start(c);
+	return 0;
+}
+
 
 struct transfer_table_entry
 {
@@ -217,6 +236,8 @@ struct transfer_table_entry
 	char description[255];
 	int (*callback)(char); // pointer of function who takes a char and returns an int
 };
+
+#define MACHINE_STATE_COUNT 29
 
 struct transfer_table_entry transfer_table[] = {
 	{MACHINE_INIT, CHAR_SPACE, MACHINE_INIT, "space char",
@@ -247,7 +268,6 @@ struct transfer_table_entry transfer_table[] = {
             cb_comment_end},
     {MACHINE_COMMENT_SINGLE_LINE, CHAR_ANY, MACHINE_COMMENT_SINGLE_LINE, "in one line comment",
             cb_comment},
-
 	{MACHINE_STRING, '\\', MACHINE_STRING_BACKSLASH, "start back slash",
 		cb_string},
 	{MACHINE_STRING, CHAR_ANY, MACHINE_STRING, "in string",
@@ -258,27 +278,24 @@ struct transfer_table_entry transfer_table[] = {
 		cb_string_end},
 	{MACHINE_STRING_BACKSLASH, '\\', MACHINE_STRING, "end back slash",
 		cb_string},
-
 	{MACHINE_WORD, CHAR_WORD, MACHINE_WORD, "\\w in word",
 		cb_word},
 	{MACHINE_WORD, CHAR_SPACE, MACHINE_INIT, "end word",
 		cb_word_end},
 	{MACHINE_WORD, CHAR_OPERATOR, MACHINE_OPERATOR, "end word, start operators",
 		cb_word_end_operator_start},
-
 	{MACHINE_DIGIT, CHAR_ALPHA_NUM_DOT, MACHINE_DIGIT, "in digit",
 		cb_digit},
 	{MACHINE_DIGIT, CHAR_SPACE, MACHINE_INIT, "end digit",
 		cb_digit_end},
 	{MACHINE_DIGIT, CHAR_OPERATOR, MACHINE_INIT, "end digit, start operators",
 		cb_digit_end_operator_start},
-
 	{MACHINE_OPERATOR, CHAR_OPERATOR, MACHINE_OPERATOR, "in operators",
 		cb_operator_start},
 	{MACHINE_OPERATOR, CHAR_SPACE, MACHINE_DIGIT, "end operators",
 		cb_operator_end},
 	{MACHINE_OPERATOR, CHAR_DIGIT, MACHINE_DIGIT, "end operators, start digit",
-		cb_operator_end_digit_end},
+		cb_operator_end_digit_start},
 	{MACHINE_OPERATOR, CHAR_WORD, MACHINE_DIGIT, "end operators, start word",
 		cb_operator_end_word_start},
 };
@@ -296,14 +313,15 @@ struct token
 
 bool is_char_belong(int c, int char_class)
 {
+	int (*func)(int);
 	if (char_class < 0)
 	{
-		auto func = char_type_map[-char_class];
+		func = char_type_map[-char_class];
 		return func(c);
 	}
 	else
 	{
-		return (char_class == c)
+		return (char_class == c);
 	}
 }
 int find_transfer_entry(int machine_state, int c)

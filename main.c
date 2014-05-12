@@ -258,6 +258,13 @@ struct token
 	char content[];
 };
 
+struct token_list
+{
+	size_t size;
+	size_t capacity;
+	struct token token_pointer[];
+};
+
 bool is_char_belong(int c, int char_class)
 {
 	int (*func)(int);

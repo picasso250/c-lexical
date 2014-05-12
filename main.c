@@ -5,6 +5,7 @@
 #include <string.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <ctype.h>
 
 #define MACHINE_INIT 0
 #define MACHINE_ERROR -1
@@ -20,7 +21,8 @@
 
 #define MACHINE_STATE_COUNT 14
 
-#define CHAR_ANY -1
+#define CHAR_SPACE -1
+#define CHAR_ANY -2
 
 int read_file_name_from_arg(char * file_name)
 {
@@ -139,13 +141,7 @@ struct transfer_table_entry
 struct transfer_table_entry transfer_table[] = {
 	{MACHINE_INIT, '/', MACHINE_COMMENT_READY, "ready to comment",
 		NULL},
-	{MACHINE_INIT, ' ', MACHINE_INIT, "space char",
-		NULL},
-	{MACHINE_INIT, '\t', MACHINE_INIT, "tab char",
-		NULL},
-	{MACHINE_INIT, '\n', MACHINE_INIT, "new line char",
-		NULL},
-	{MACHINE_INIT, '\r', MACHINE_INIT, "carrier char",
+	{MACHINE_INIT, CHAR_SPACE, MACHINE_INIT, "space char",
 		NULL},
 	{MACHINE_INIT, '#', MACHINE_COMPILE_PROCESSOR, "compile processor start",
 		cb_compile_processor_name_start},
@@ -153,6 +149,14 @@ struct transfer_table_entry transfer_table[] = {
 		cb_compile_processor_name_end},
 	{MACHINE_COMPILE_PROCESSOR, CHAR_ANY, MACHINE_COMPILE_PROCESSOR, "read processor name",
 		cb_compile_processor_name},
+	{MACHINE_INCLUDE, CHAR_SPACE, MACHINE_INCLUDE, "include something",
+		NULL},
+	{MACHINE_INCLUDE, '<', MACHINE_INCLUDE_NAME, "include <name> start",
+		NULL},
+	{MACHINE_INCLUDE_NAME, '>', MACHINE_LAST_STATE, "include <name> end",
+		NULL},
+	{MACHINE_INCLUDE_NAME, CHAR_ANY, MACHINE_INCLUDE_NAME, "include <name> constructing",
+		NULL},
 	{MACHINE_COMMENT_READY, '*', MACHINE_COMMENT_MULTI_LINE, "start multi line comment", 
 		cb_comment_init},
 	{MACHINE_COMMENT_READY, '/', MACHINE_COMMENT_SINGLE_LINE, "start single line comment", 
@@ -184,7 +188,7 @@ int find_transfer_entry(int machine_state, int c)
 		int state = transfer_table[i].state_current;
 		int ch = transfer_table[i].char_current;
 		// match the first, regardless others
-		if (state == machine_state && (c == ch || ch == CHAR_ANY))
+		if (state == machine_state && (c == ch || ch == CHAR_ANY || (ch == CHAR_SPACE && isspace(c))))
 		{
 			return i;
 		}

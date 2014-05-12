@@ -36,19 +36,19 @@ int read_file_name_from_arg(char * file_name)
 #define CHAR_WORD -6
 #define CHAR_OPERATOR -7
 
-int isany(int c)
+inline int isany(int c)
 {
 	return true;
 }
-int isalpha_(int c)
+inline int isalpha_(int c)
 {
 	return c == '_' || isalpha(c);
 }
-int isalphanumdot(int c)
+inline int isalphanumdot(int c)
 {
 	return c == '.' || isalphanum(c);
 }
-int isword(int c)
+inline int isword(int c)
 {
 	return c == '_' || isalphanum(c);
 }
@@ -198,11 +198,11 @@ struct transfer_table_entry transfer_table[] = {
 	{MACHINE_INIT, CHAR_SPACE, MACHINE_INIT, "space char",
 		NULL},
 	{MACHINE_INIT, CHAR_ALPHA_UNDERSCORE, MACHINE_WORD, "[a-z_], start word",
-		cb_compile_processor_name_start},
+		cb_word_start},
 	{MACHINE_INIT, CHAR_DIGIT, MACHINE_DIGIT, "'0-9', start digit",
-		cb_compile_processor_name_start},
+		cb_digit_start},
 	{MACHINE_INIT, '"', MACHINE_STRING, "start string",
-		cb_compile_processor_name_start},
+		cb_string_start},
     {MACHINE_INIT, '/', MACHINE_COMMENT_READY, "ready to comment",
             NULL},
     {MACHINE_COMMENT_READY, '*', MACHINE_COMMENT_MULTI_LINE, "start multi line comment",
@@ -225,36 +225,38 @@ struct transfer_table_entry transfer_table[] = {
             cb_comment},
 
 	{MACHINE_STRING, '\\', MACHINE_STRING_BACKSLASH, "start back slash",
-		cb_compile_processor_name_start},
+		cb_string},
+	{MACHINE_STRING, CHAR_ANY, MACHINE_STRING, "in string",
+		cb_string},
 	{MACHINE_INIT, CHAR_OPERATOR, MACHINE_OPERATOR, "start operators",
-		cb_compile_processor_name_start},
+		cb_operator_start},
 	{MACHINE_STRING, '"', MACHINE_INIT, "end string",
-		cb_compile_processor_name_start},
+		cb_string_end},
 	{MACHINE_STRING_BACKSLASH, '\\', MACHINE_STRING, "end back slash",
-		cb_compile_processor_name_start},
+		cb_string},
 
 	{MACHINE_WORD, CHAR_WORD, MACHINE_WORD, "\\w in word",
-		cb_compile_processor_name_start},
+		cb_word},
 	{MACHINE_WORD, CHAR_SPACE, MACHINE_COMPILE_PROCESSOR, "end word",
-		cb_compile_processor_name_start},
+		cb_word_end},
 	{MACHINE_WORD, CHAR_OPERATOR, MACHINE_COMPILE_PROCESSOR, "end word, start operators",
-		cb_compile_processor_name_start},
+		cb_word_end_operator_start},
 
-	{MACHINE_DIGIT, CHAR_ALPHA_NUM_DOT, MACHINE_DIGIT, "in word",
-		cb_compile_processor_name_start},
+	{MACHINE_DIGIT, CHAR_ALPHA_NUM_DOT, MACHINE_DIGIT, "in digit",
+		cb_digit},
 	{MACHINE_DIGIT, CHAR_SPACE, MACHINE_INIT, "end digit",
-		cb_compile_processor_name_start},
+		cb_digit_end},
 	{MACHINE_DIGIT, CHAR_OPERATOR, MACHINE_INIT, "end digit, start operators",
-		cb_compile_processor_name_start},
+		cb_digit_end_operator_start},
 
 	{MACHINE_OPERATOR, CHAR_OPERATOR, MACHINE_OPERATOR, "in operators",
-		cb_compile_processor_name_start},
+		cb_operator_start},
 	{MACHINE_OPERATOR, CHAR_SPACE, MACHINE_DIGIT, "end operators",
-		cb_compile_processor_name_start},
+		cb_operator_end},
 	{MACHINE_OPERATOR, CHAR_DIGIT, MACHINE_DIGIT, "end operators, start digit",
-		cb_compile_processor_name_start},
+		cb_operator_end_digit_end},
 	{MACHINE_OPERATOR, CHAR_WORD, MACHINE_DIGIT, "end operators, start word",
-		cb_compile_processor_name_start},
+		cb_operator_end_word_start},
 };
 
 #define TOKEN_TYPE_WORD 2

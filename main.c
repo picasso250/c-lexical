@@ -1,3 +1,4 @@
+// hello world
 /* main.c */
 /* this file is to lexic pass of c */
 
@@ -11,9 +12,9 @@
 #define MACHINE_COMMENT_READY 1
 #define MACHINE_COMMENT_MULTI_LINE 11
 #define MACHINE_COMMENT_SINGLE_LINE 12
-#define MACHINE_COMMENT_MULTI_LINE_END_READY 12
+#define MACHINE_COMMENT_MULTI_LINE_END_READY 111
 
-#define MACHINE_STATE_COUNT 10
+#define MACHINE_STATE_COUNT 14
 
 #define CHAR_ANY -1
 
@@ -51,13 +52,21 @@ struct transfer_table_entry
 };
 
 struct transfer_table_entry transfer_table[] = {
-	{MACHINE_INIT, '/', MACHINE_COMMENT_READY, "ready to comment", 
+	{MACHINE_INIT, '/', MACHINE_COMMENT_READY, "ready to comment",
+		NULL},
+	{MACHINE_INIT, ' ', MACHINE_INIT, "space char",
+		NULL},
+	{MACHINE_INIT, '\t', MACHINE_INIT, "tab char",
+		NULL},
+	{MACHINE_INIT, '\n', MACHINE_INIT, "new line char",
+		NULL},
+	{MACHINE_INIT, '\r', MACHINE_INIT, "carrier char",
 		NULL},
 	{MACHINE_COMMENT_READY, '*', MACHINE_COMMENT_MULTI_LINE, "start multi line comment", 
 		cb_comment_init},
 	{MACHINE_COMMENT_READY, '/', MACHINE_COMMENT_SINGLE_LINE, "start single line comment", 
 		NULL},
-	{MACHINE_COMMENT_READY, CHAR_ANY, MACHINE_ERROR, "/ followed by neither of '*' or '/'", 
+	{MACHINE_COMMENT_READY, CHAR_ANY, MACHINE_ERROR, "'/' followed by neither of '*' or '/'", 
 		NULL},
 	{MACHINE_COMMENT_MULTI_LINE, '*', MACHINE_COMMENT_MULTI_LINE_END_READY, "read to end multi line comment", 
 		NULL},
@@ -68,9 +77,9 @@ struct transfer_table_entry transfer_table[] = {
 	{MACHINE_COMMENT_MULTI_LINE_END_READY, CHAR_ANY, MACHINE_COMMENT_MULTI_LINE_END_READY, "no, we do not end multi line comment", 
 		NULL},
 	{MACHINE_COMMENT_SINGLE_LINE, '\n', MACHINE_LAST_STATE, "end of line, end of single line comment", 
-		NULL},
+		cb_comment_multi_line_end},
 	{MACHINE_COMMENT_SINGLE_LINE, CHAR_ANY, MACHINE_COMMENT_SINGLE_LINE, "in one line comment", 
-		NULL},
+		cb_comment_multi_line},
 };
 
 int machine_state;
@@ -83,6 +92,7 @@ int find_transfer_entry(int machine_state, int c)
 	{
 		int state = transfer_table[i].state_current;
 		int ch = transfer_table[i].char_current;
+		// match the first, regardless others
 		if (state == machine_state && (c == ch || ch == CHAR_ANY))
 		{
 			return i;
@@ -103,7 +113,7 @@ int state_machine_eat_char(char c)
 		printf("no state %d and char %c in transfer_table\n", machine_state, c);
 		return -1;
 	}
-	printf("STATE TRANSFER %d: %s\n", i, transfer_table[i].description);
+	printf("STTE %d: %s\n", i, transfer_table[i].description);
 	// call back
 	int (*func_cb)(char) = transfer_table[i].callback;
 	if (func_cb != NULL)
@@ -136,6 +146,7 @@ int state_machine_eat_char(char c)
 	{
 		machine_state = next_state;
 	}
+	printf("we go to state %d\n", machine_state);
 	return 0;
 }
 int main(int argc, char const *argv[])

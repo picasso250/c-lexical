@@ -7,21 +7,6 @@
 #include <stdbool.h>
 #include <ctype.h>
 
-#define KEYWORD_COUNT 32
-char keywords[][20] = {"auto", "break", "case", "char", "const", "continue", "default", "do", "double", "else", "enum", "extern", "float", "for", "goto", "if", "int", "long", "register", "return", "short", "signed", "sizeof", "static", "struct", "switch", "typedef", "union", "unsigned", "void", "volatile", "while"};
-char operators[][3] = {"#", "<", ">", ";", ",", ".", "->", "+", "-", "*", "/", "%", "++", "--", "<", ">", "=", "+=", "-=", "*=", "/=", "%=", "<<=", ">>=", "&=", "^=", "|=", "==", "<=", ">=", "!=", "&&", "||", "!", "|", "&", "^", "~", "<<", ">>", "+=", "*=", "?", ":", "(", ")", "[", "]", "{", "}"};
-bool is_in_map(char * str, char **map)
-{
-	for (int i = 0; i < count; ++i)
-	{
-		if (strcmp(str, map[i]) == 0)
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
 int read_file_name_from_arg(char * file_name)
 {
 	strcpy(file_name, "test.c");
@@ -68,7 +53,7 @@ int isword(int c)
 	return c == '_' || isalphanum(c);
 }
 
-int (*)(int) [] = {
+int (* char_type_map)(int) [] = {
 	NULL, // 0
 	isany,
 	isspace,
@@ -78,8 +63,6 @@ int (*)(int) [] = {
 	isword,
 	ispunct,
 };
-
-
 
 int machine_state;
 int line_num;
@@ -285,15 +268,27 @@ struct token
 	char content[];
 };
 
+bool is_char_belong(int c, int char_class)
+{
+	if (char_class < 0)
+	{
+		auto func = char_type_map[-char_class];
+		return func(c);
+	}
+	else
+	{
+		return (char_class == c)
+	}
+}
 int find_transfer_entry(int machine_state, int c)
 {
 	int i;
 	for (i = 0; i < MACHINE_STATE_COUNT; ++i)
 	{
 		int state = transfer_table[i].state_current;
-		int ch = transfer_table[i].char_current;
+		int char_class = transfer_table[i].char_current;
 		// match the first, regardless others
-		if (state == machine_state && (c == ch || ch == CHAR_ANY || (ch == CHAR_SPACE && isspace(c))))
+		if (state == machine_state && is_char_belong(c, char_class))
 		{
 			return i;
 		}

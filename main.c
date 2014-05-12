@@ -66,12 +66,12 @@ int cb_comment_init(char c)
 	buffer_comment_index = 0;
 	return 0;
 }
-int cb_comment_multi_line(char c)
+int cb_comment(char c)
 {
 	buffer_comment[buffer_comment_index++] = c;
 	return 0;
 }
-int cb_comment_multi_line_end(char c)
+int cb_comment_end(char c)
 {
 	printf("%s\n", buffer_comment);
 	return 0;
@@ -107,15 +107,15 @@ struct transfer_table_entry transfer_table[] = {
 	{MACHINE_COMMENT_MULTI_LINE, '*', MACHINE_COMMENT_MULTI_LINE_END_READY, "read to end multi line comment", 
 		NULL},
 	{MACHINE_COMMENT_MULTI_LINE, CHAR_ANY, MACHINE_COMMENT_MULTI_LINE, "in multi line comment", 
-		cb_comment_multi_line},
+		cb_comment},
 	{MACHINE_COMMENT_MULTI_LINE_END_READY, '/', MACHINE_LAST_STATE, "yes, we end multi line comment", 
-		cb_comment_multi_line_end},
+		cb_comment_end},
 	{MACHINE_COMMENT_MULTI_LINE_END_READY, CHAR_ANY, MACHINE_COMMENT_MULTI_LINE_END_READY, "no, we do not end multi line comment", 
 		NULL},
 	{MACHINE_COMMENT_SINGLE_LINE, '\n', MACHINE_LAST_STATE, "end of line, end of single line comment", 
-		cb_comment_multi_line_end},
+		cb_comment_end},
 	{MACHINE_COMMENT_SINGLE_LINE, CHAR_ANY, MACHINE_COMMENT_SINGLE_LINE, "in one line comment", 
-		cb_comment_multi_line},
+		cb_comment},
 };
 
 int machine_state;

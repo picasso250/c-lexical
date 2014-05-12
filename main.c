@@ -21,12 +21,11 @@ int read_file_name_from_arg(char * file_name)
 #define MACHINE_COMMENT_SINGLE_LINE 12
 #define MACHINE_COMMENT_MULTI_LINE_END_READY 111
 #define MACHINE_UNKOWN 2 // leave it alone
-#define MACHINE_COMPILE_PROCESSOR 3
-#define MACHINE_INCLUDE 31
-#define MACHINE_INCLUDE_NAME 311
-#define MACHINE_DEFINE 32
-
-#define MACHINE_STATE_COUNT 14
+#define MACHINE_WORD 3
+#define MACHINE_OPERATOR 4
+#define MACHINE_DIGIT 5
+#define MACHINE_STRING 6
+#define MACHINE_STRING_BACKSLASH 61
 
 #define CHAR_ANY -1
 #define CHAR_SPACE -2
@@ -151,41 +150,62 @@ int cb_comment_end(char c)
 	printf("comment: %s\n", buffer_end());
 	return 0;
 }
-int cb_word(char c)
-{
-	buffer_append(c);
-}
 int cb_word_start(char c)
 {
 	buffer_init();
+	buffer_append(c);
+}
+int cb_word(char c)
+{
+	buffer_append(c);
 }
 int cb_word_end(char c)
 {
 	printf("word '%s'\n", buffer_end());
 }
-int cb_operator(char c)
-{
-	buffer_append(c);
-}
 int cb_operator_start(char c)
 {
 	buffer_init();
+	buffer_append(c);
+}
+int cb_operator(char c)
+{
+	buffer_append(c);
 }
 int cb_operator_end(char c)
 {
 	printf("operator '%s'\n", buffer_end());
 }
+int cb_digit_start(char c)
+{
+	buffer_init();
+	buffer_append(c);
+}
 int cb_digit(char c)
 {
 	buffer_append(c);
 }
-int cb_digit_start(char c)
-{
-	buffer_init();
-}
 int cb_digit_end(char c)
 {
 	printf("digit '%s'\n", buffer_end());
+}
+int cb_string_start(char c)
+{
+	buffer_init();
+}
+int cb_string(char c)
+{
+	buffer_append(c);
+}
+int cb_string_end(char c)
+{
+	printf("string '%s'\n", buffer_end());
+}
+int cb_word_end_operator_start(char c)
+{
+	cb_word_end(c);
+	cb_operator_start(c);
+	return 0;
 }
 
 struct transfer_table_entry
@@ -241,9 +261,9 @@ struct transfer_table_entry transfer_table[] = {
 
 	{MACHINE_WORD, CHAR_WORD, MACHINE_WORD, "\\w in word",
 		cb_word},
-	{MACHINE_WORD, CHAR_SPACE, MACHINE_COMPILE_PROCESSOR, "end word",
+	{MACHINE_WORD, CHAR_SPACE, MACHINE_INIT, "end word",
 		cb_word_end},
-	{MACHINE_WORD, CHAR_OPERATOR, MACHINE_COMPILE_PROCESSOR, "end word, start operators",
+	{MACHINE_WORD, CHAR_OPERATOR, MACHINE_OPERATOR, "end word, start operators",
 		cb_word_end_operator_start},
 
 	{MACHINE_DIGIT, CHAR_ALPHA_NUM_DOT, MACHINE_DIGIT, "in digit",

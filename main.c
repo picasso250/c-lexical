@@ -27,24 +27,36 @@ int read_file_name_from_arg(char * file_name)
 
 int stack_pointer = 0;
 int state_stack[1000];
-int push_state(int machine_state)
+// for debug
+int state_stack_print()
 {
-	printf("we will push state %d\n", machine_state);
-	if (machine_state != state_stack[stack_pointer-1])
-	{
-		state_stack[stack_pointer++] = machine_state;
-	}
-	return stack_pointer;
-}
-int pop_last_state()
-{
-	printf("stack \n");
-	for (int i = 0; i <= stack_pointer; ++i)
+	printf("stack: ");
+	for (int i = 0; i < stack_pointer; ++i)
 	{
 		printf("%d,", state_stack[i]);
 	}
 	printf("\n");
-	int last;
+}
+int state_push(int machine_state)
+{
+	printf("pushing state %d\n", machine_state);
+	int current = state_stack[stack_pointer-1];
+	if (stack_pointer > 0 && current == MACHINE_COMMENT_READY && (machine_state == MACHINE_COMMENT_MULTI_LINE|| machine_state == MACHINE_COMMENT_SINGLE_LINE))
+	{
+		state_stack[stack_pointer-1] = machine_state;
+	}
+	else if (stack_pointer == 0 || machine_state != current)
+	{
+		state_stack[stack_pointer++] = machine_state;
+	}
+	state_stack_print();
+	return stack_pointer;
+}
+int state_pop()
+{
+	printf("poping stack\n");
+	state_stack_print();
+	int last = 0;
 	do {
 		last = state_stack[--stack_pointer];
 		if (last == MACHINE_COMMENT_READY)
@@ -53,11 +65,17 @@ int pop_last_state()
 		}
 		else
 		{
-			return last;
+			break;
 		}
 	} while (true);
-	return 0;
+	state_stack_print();
+	return last;
 }
+int state_get()
+{
+	return state_stack[stack_pointer-1];
+}
+
 
 int buffer_comment_index;
 char buffer_comment[65535];
@@ -104,7 +122,7 @@ struct transfer_table_entry transfer_table[] = {
 		NULL},
 	{MACHINE_COMMENT_READY, CHAR_ANY, MACHINE_ERROR, "'/' followed by neither of '*' or '/'", 
 		NULL},
-	{MACHINE_COMMENT_MULTI_LINE, '*', MACHINE_COMMENT_MULTI_LINE_END_READY, "read to end multi line comment", 
+	{MACHINE_COMMENT_MULTI_LINE, '*', MACHINE_COMMENT_MULTI_LINE_END_READY, "ready to end multi line comment", 
 		NULL},
 	{MACHINE_COMMENT_MULTI_LINE, CHAR_ANY, MACHINE_COMMENT_MULTI_LINE, "in multi line comment", 
 		cb_comment},
@@ -160,11 +178,12 @@ int state_machine_eat_char(char c)
 			return -1;
 		}
 	}
-	push_state(machine_state);
+	int last_state = machine_state;
 	int next_state = transfer_table[i].state_next; // next state
 	if (next_state == MACHINE_LAST_STATE)
 	{
-		machine_state = pop_last_state();
+		state_pop();
+		machine_state = state_get();
 	}
 	else if (next_state == MACHINE_ERROR)
 	{
@@ -180,6 +199,7 @@ int state_machine_eat_char(char c)
 	}
 	else
 	{
+		state_push(last_state);
 		machine_state = next_state;
 	}
 	printf("we go to state %d\n", machine_state);
